@@ -26,7 +26,7 @@ git clone <your-latex-repo> projects/my-project
 ./start.sh
 ```
 
-3. Visit http://localhost:3000
+3. The server will print a public URL (via Cloudflare Tunnel) in the terminal. Open that URL in your browser.
 
 ## License
 
