@@ -1,0 +1,6 @@
+texlive-latex-base
+texlive-latex-recommended
+texlive-science
+texlive-publishers
+texlive-bibtex-extra
+latexmk

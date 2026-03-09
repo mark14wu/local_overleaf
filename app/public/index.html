@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overleaf</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="ide-redesign-toolbar">
+    <div class="toolbar-menu">
+      <button class="toolbar-menu-logo" title="Home">
+        <svg class="ol-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 136 157" width="20" height="20"><path d="M37.2 39.7C14.8 54 0 77.3 0 102.3 0 132.5 24.5 157 54.7 157s54.7-24.5 54.7-54.7c0-23.3-14.6-43.3-35.2-51.1-4-1.5-12.6-4.2-19.4-3.6-9.8 6.2-21.8 19-27.4 31.8 8.4-10.1 21.5-14.5 33.2-12.6 17.1 2.8 30.2 17.6 30.2 35.6 0 19.9-16.1 36-36 36-11 0-20.8-4.9-27.4-12.6-9.9-11.5-12.4-23.9-10.4-36 6.9-42.4 57.2-66.5 94.6-75.8C99.4 20.5 77.4 31.1 62 42.6c44.9 17.3 52.2-20.5 73.2-37.5-21.2-8.2-97.9-11.2-98 34.6z" fill="#fff"/></svg>
+        <span class="material-symbols home-icon">home</span>
+      </button>
+      <button class="toolbar-menu-item">File</button>
+      <button class="toolbar-menu-item">Edit</button>
+      <button class="toolbar-menu-item">View</button>
+    </div>
+    <div class="toolbar-project-title">
+      <select id="project-select"></select>
+    </div>
+    <div class="toolbar-actions">
+      <span id="status"></span>
+      <button class="toolbar-action-btn" id="btn-layout" title="Layout"><span class="material-symbols">vertical_split</span></button>
+      <button class="toolbar-action-btn" id="btn-download" title="Download PDF"><span class="material-symbols">download</span></button>
+    </div>
+  </nav>
+
+  <main>
+    <aside id="ide-rail">
+      <div class="rail-tabs-top">
+        <button class="rail-btn active" data-panel="file-tree" title="File Tree"><span class="material-symbols">description</span></button>
+        <button class="rail-btn" data-panel="search" title="Search"><span class="material-symbols">search</span></button>
+        <button class="rail-btn" data-panel="review" title="Review"><span class="material-symbols">rate_review</span></button>
+        <button class="rail-btn" data-panel="chat" title="Chat"><span class="material-symbols">forum</span></button>
+      </div>
+      <div class="rail-tabs-bottom">
+        <button class="rail-btn" title="Help"><span class="material-symbols">help</span></button>
+        <button class="rail-btn" title="Settings"><span class="material-symbols">settings</span></button>
+      </div>
+    </aside>
+    <div id="side-panel">
+      <div id="sidebar-toolbar">
+        <button id="btn-collapse-tree" class="file-tree-expand-collapse-button">
+          <span class="material-symbols">keyboard_arrow_down</span>
+          <h4>File Tree</h4>
+        </button>
+        <div class="file-tree-toolbar-actions">
+          <button id="btn-new-file" title="New File"><span class="material-symbols">note_add</span></button>
+          <button id="btn-new-folder" title="New Folder"><span class="material-symbols">create_new_folder</span></button>
+        </div>
+      </div>
+      <div id="file-tree"></div>
+    </div>
+    <div id="splitter-left" class="splitter"></div>
+    <div id="editor-pane">
+      <textarea id="editor"></textarea>
+    </div>
+    <div id="splitter-right" class="splitter"></div>
+    <div id="preview-pane">
+      <div id="pdf-toolbar">
+        <div class="toolbar-pdf-left">
+          <div class="compile-button-group">
+            <button id="btn-compile"><span class="material-symbols">play_arrow</span> Recompile</button>
+          </div>
+          <button class="pdf-toolbar-btn" id="btn-toggle-log"><span class="material-symbols">article</span> Logs</button>
+        </div>
+        <div class="toolbar-pdf-right">
+          <div class="toolbar-pdf-controls">
+            <input type="number" id="pdf-page-input" min="1" value="1" title="Go to page">
+            <span class="pdf-page-sep">/</span>
+            <span id="pdf-total-pages">0</span>
+            <span class="pdf-controls-divider"></span>
+            <button class="pdf-ctrl-btn" id="btn-zoom-out" title="Zoom out"><span class="material-symbols">remove</span></button>
+            <button class="pdf-ctrl-btn" id="btn-zoom-in" title="Zoom in"><span class="material-symbols">add</span></button>
+            <select id="zoom-select" title="Zoom level">
+              <option value="0.75">50%</option>
+              <option value="1.125">75%</option>
+              <option value="1.5" selected>100%</option>
+              <option value="1.875">125%</option>
+              <option value="2.25">150%</option>
+              <option value="3.0">200%</option>
+              <option value="fit">Fit</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="pdf-container"></div>
+      <div class="synctex-controls">
+        <button id="btn-sync-to-pdf" class="synctex-control" title="Go to PDF (Ctrl+Shift+Enter)"><span class="material-symbols">arrow_forward</span></button>
+        <button id="btn-sync-to-code" class="synctex-control" title="Go to code"><span class="material-symbols">arrow_back</span></button>
+      </div>
+    </div>
+  </main>
+
+  <div id="log-panel">
+    <div id="log-header">
+      <div class="log-header-left">
+        <span>Logs</span>
+        <span id="log-errors" class="log-badge log-badge-error" style="display:none">0 errors</span>
+        <span id="log-warnings" class="log-badge log-badge-warning" style="display:none">0 warnings</span>
+      </div>
+      <button id="btn-close-log">
+        <span class="material-symbols">close</span>
+      </button>
+    </div>
+    <pre id="log-content"></pre>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

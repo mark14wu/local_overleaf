@@ -1,0 +1,16 @@
+.venv/
+uv.lock
+node_modules/
+projects/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.synctex.gz
+*.out
+*.exh
+texput.*
