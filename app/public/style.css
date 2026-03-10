@@ -667,6 +667,110 @@ main {
   display: block;
 }
 
+/* ---- External Change Banner ---- */
+#external-change-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-04);
+  padding: var(--spacing-03) var(--spacing-05);
+  background: #3d2e00;
+  color: #ffd666;
+  font-size: 13px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+#external-change-banner .material-symbols {
+  font-size: 18px;
+  color: #ffd666;
+}
+
+#external-change-banner button {
+  padding: 2px 10px;
+  border: 1px solid #ffd666;
+  border-radius: var(--radius-base);
+  background: transparent;
+  color: #ffd666;
+  font-size: 12px;
+  font-family: 'Noto Sans', sans-serif;
+  cursor: pointer;
+}
+
+#external-change-banner button:hover {
+  background: rgba(255, 214, 102, 0.15);
+}
+
+#external-change-banner .dismiss-btn {
+  border-color: transparent;
+}
+
+/* ---- Conflict Modal ---- */
+#conflict-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.conflict-dialog {
+  background: var(--bg-dark-secondary);
+  border: 1px solid var(--bg-dark-tertiary);
+  border-radius: 8px;
+  padding: var(--spacing-08);
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+}
+
+.conflict-dialog h3 {
+  margin-bottom: var(--spacing-04);
+  font-size: 16px;
+  color: var(--content-primary);
+}
+
+.conflict-dialog p {
+  margin-bottom: var(--spacing-06);
+  font-size: 14px;
+  color: var(--content-secondary);
+}
+
+.conflict-actions {
+  display: flex;
+  gap: var(--spacing-04);
+  justify-content: center;
+}
+
+.conflict-actions button {
+  padding: var(--spacing-03) var(--spacing-06);
+  border: none;
+  border-radius: var(--radius-base);
+  font-size: 14px;
+  font-family: 'Noto Sans', sans-serif;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#btn-conflict-reload {
+  background: var(--green-50);
+  color: var(--content-primary);
+}
+
+#btn-conflict-reload:hover {
+  filter: brightness(1.1);
+}
+
+#btn-conflict-overwrite {
+  background: var(--bg-dark-tertiary);
+  color: var(--content-primary);
+}
+
+#btn-conflict-overwrite:hover {
+  filter: brightness(1.2);
+}
+
 /* ---- Scrollbars ---- */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark-primary); }

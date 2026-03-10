@@ -59,6 +59,12 @@
     </div>
     <div id="splitter-left" class="splitter"></div>
     <div id="editor-pane">
+      <div id="external-change-banner" style="display:none">
+        <span class="material-symbols">warning</span>
+        <span>This file has been changed on disk.</span>
+        <button onclick="document.querySelector('#external-change-banner').__reload()">Reload</button>
+        <button class="dismiss-btn" onclick="document.querySelector('#external-change-banner').style.display='none'">Dismiss</button>
+      </div>
       <textarea id="editor"></textarea>
     </div>
     <div id="splitter-right" class="splitter"></div>
@@ -110,6 +116,17 @@
       </button>
     </div>
     <pre id="log-content"></pre>
+  </div>
+
+  <div id="conflict-modal" style="display:none">
+    <div class="conflict-dialog">
+      <h3>File Changed on Disk</h3>
+      <p>This file was modified outside the editor. What would you like to do?</p>
+      <div class="conflict-actions">
+        <button id="btn-conflict-reload">Reload from disk</button>
+        <button id="btn-conflict-overwrite">Overwrite with my changes</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>

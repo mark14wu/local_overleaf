@@ -70,6 +70,9 @@ app.get('/api/projects/:name/files/*filepath', (req, res) => {
   if (!filePath) return res.status(400).json({ error: 'Invalid path' });
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
 
+  const stat = fs.statSync(filePath);
+  res.set('X-File-Mtime', String(stat.mtimeMs));
+
   const ext = path.extname(filePath).toLowerCase();
   const textExts = ['.tex', '.bib', '.sty', '.cls', '.txt', '.md', '.cfg', '.def', '.ltx', '.dtx', '.ins', '.bbl', '.bst', '.log', '.aux', '.toc', '.lof', '.lot', '.out', '.nav', '.snm', '.vrb', '.pgf', '.tikz', '.csv', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.sh', '.py', '.r', '.lua', '.gitignore', '.latexmkrc'];
   if (textExts.includes(ext) || ext === '') {
@@ -84,15 +87,34 @@ app.get('/api/projects/:name/files/*filepath', (req, res) => {
   }
 });
 
+// File mtime check (lightweight polling endpoint)
+app.get('/api/projects/:name/files-mtime/*filepath', (req, res) => {
+  const fp = Array.isArray(req.params.filepath) ? req.params.filepath.join('/') : req.params.filepath;
+  const filePath = safePath(req.params.name, fp);
+  if (!filePath) return res.status(400).json({ error: 'Invalid path' });
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  const stat = fs.statSync(filePath);
+  res.json({ mtime: stat.mtimeMs });
+});
+
 // Save file
 app.put('/api/projects/:name/files/*filepath', (req, res) => {
   const fp = Array.isArray(req.params.filepath) ? req.params.filepath.join('/') : req.params.filepath;
   const filePath = safePath(req.params.name, fp);
   if (!filePath) return res.status(400).json({ error: 'Invalid path' });
   try {
+    const expectedMtime = req.headers['x-expected-mtime'];
+    if (expectedMtime && fs.existsSync(filePath)) {
+      const currentStat = fs.statSync(filePath);
+      if (String(currentStat.mtimeMs) !== expectedMtime) {
+        const diskContent = fs.readFileSync(filePath, 'utf-8');
+        return res.status(409).json({ conflict: true, diskContent, diskMtime: currentStat.mtimeMs });
+      }
+    }
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
-    res.json({ ok: true });
+    const newStat = fs.statSync(filePath);
+    res.json({ ok: true, mtime: newStat.mtimeMs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

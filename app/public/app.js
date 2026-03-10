@@ -3,6 +3,9 @@
   let currentFile = null;
   let editor = null;
   let saveTimer = null;
+  let currentFileMtime = null;
+  let isSaving = false;
+  let mtimePoller = null;
 
   // PDF.js state
   let pdfDoc = null;
@@ -115,6 +118,7 @@
     currentProject = projectSelect.value;
     localStorage.setItem('lastProject', currentProject);
     currentFile = null;
+    currentFileMtime = null;
     editor.setValue('');
     pdfContainer.innerHTML = '';
     pdfDoc = null;
@@ -184,9 +188,12 @@
     try {
       const res = await fetch(`/api/projects/${currentProject}/files/${filePath}`);
       const text = await res.text();
+      const mtimeHeader = res.headers.get('X-File-Mtime');
+      currentFileMtime = mtimeHeader ? mtimeHeader : null;
       editor.setValue(text);
       editor.clearHistory();
       statusEl.textContent = 'Loaded';
+      dismissExternalChangeBanner();
 
       if (ext === 'bib') {
         editor.setOption('mode', 'stex');
@@ -216,19 +223,117 @@
   }
 
   async function saveCurrentFile() {
-    if (!currentFile || !currentProject) return;
+    if (!currentFile || !currentProject) return 'skipped';
     clearTimeout(saveTimer);
+    isSaving = true;
     try {
-      await fetch(`/api/projects/${currentProject}/files/${currentFile}`, {
+      const headers = { 'Content-Type': 'text/plain' };
+      if (currentFileMtime) {
+        headers['X-Expected-Mtime'] = currentFileMtime;
+      }
+      const res = await fetch(`/api/projects/${currentProject}/files/${currentFile}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'text/plain' },
+        headers,
         body: editor.getValue(),
       });
+      if (res.status === 409) {
+        const data = await res.json();
+        showConflictModal(data.diskContent, data.diskMtime);
+        return 'conflict';
+      }
+      const data = await res.json();
+      if (data.mtime) {
+        currentFileMtime = String(data.mtime);
+      }
       statusEl.textContent = 'Saved';
+      dismissExternalChangeBanner();
+      return 'saved';
     } catch (err) {
       statusEl.textContent = 'Save failed';
+      return 'skipped';
+    } finally {
+      isSaving = false;
     }
   }
+
+  // --- Conflict Modal ---
+  function showConflictModal(diskContent, diskMtime) {
+    const modal = $('#conflict-modal');
+    modal.style.display = 'flex';
+    modal._diskContent = diskContent;
+    modal._diskMtime = diskMtime;
+  }
+
+  function hideConflictModal() {
+    $('#conflict-modal').style.display = 'none';
+  }
+
+  // Reload from disk
+  function conflictReload() {
+    const modal = $('#conflict-modal');
+    editor.setValue(modal._diskContent);
+    editor.clearHistory();
+    currentFileMtime = String(modal._diskMtime);
+    statusEl.textContent = 'Reloaded from disk';
+    dismissExternalChangeBanner();
+    hideConflictModal();
+  }
+
+  // Overwrite disk with editor content
+  async function conflictOverwrite() {
+    hideConflictModal();
+    const modal = $('#conflict-modal');
+    // Save without mtime check (force overwrite)
+    currentFileMtime = null;
+    await saveCurrentFile();
+  }
+
+  // --- External Change Banner ---
+  function showExternalChangeBanner() {
+    const banner = $('#external-change-banner');
+    if (banner) banner.style.display = 'flex';
+  }
+
+  function dismissExternalChangeBanner() {
+    const banner = $('#external-change-banner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  async function bannerReload() {
+    if (!currentFile || !currentProject) return;
+    try {
+      const res = await fetch(`/api/projects/${currentProject}/files/${currentFile}`);
+      const text = await res.text();
+      const mtimeHeader = res.headers.get('X-File-Mtime');
+      currentFileMtime = mtimeHeader ? mtimeHeader : null;
+      editor.setValue(text);
+      editor.clearHistory();
+      statusEl.textContent = 'Reloaded from disk';
+      dismissExternalChangeBanner();
+    } catch (err) {
+      statusEl.textContent = 'Reload failed';
+    }
+  }
+
+  // --- Mtime Polling ---
+  function startMtimePolling() {
+    if (mtimePoller) clearInterval(mtimePoller);
+    mtimePoller = setInterval(async () => {
+      if (!currentFile || !currentProject || !currentFileMtime || isSaving) return;
+      try {
+        const res = await fetch(`/api/projects/${currentProject}/files-mtime/${currentFile}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (String(data.mtime) !== currentFileMtime) {
+          showExternalChangeBanner();
+        }
+      } catch (e) {
+        // ignore polling errors
+      }
+    }, 5000);
+  }
+
+  startMtimePolling();
 
   // --- PDF.js Rendering ---
   async function loadPdf() {
@@ -653,6 +758,11 @@
 
   initSplitter('#splitter-left', '#side-panel');
   initSplitter('#splitter-right', '#editor-pane');
+
+  // --- Conflict Modal & Banner Wiring ---
+  $('#btn-conflict-reload').addEventListener('click', conflictReload);
+  $('#btn-conflict-overwrite').addEventListener('click', conflictOverwrite);
+  $('#external-change-banner').__reload = bannerReload;
 
   // --- Init ---
   loadProjects();
