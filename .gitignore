@@ -12,5 +12,16 @@ projects/
 *.blg
 *.synctex.gz
 *.out
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.xdv
+*.bcf
+*.run.xml
+*.pdf
 *.exh
 texput.*
+*.deb

@@ -519,6 +519,19 @@ main {
 .pdf-ctrl-btn:hover { background: rgba(125, 125, 125, 0.2); }
 .pdf-ctrl-btn .material-symbols { font-size: 18px; }
 
+#compiler-select {
+  height: 24px;
+  background: var(--bg-dark-primary);
+  border: 1px solid var(--bg-dark-tertiary);
+  border-radius: var(--radius-base);
+  color: var(--content-primary);
+  font-size: 12px;
+  padding: 0 var(--spacing-02);
+  cursor: pointer;
+}
+#compiler-select:focus { outline: 1px solid var(--blue-50); }
+#compiler-select option { background: var(--bg-dark-secondary); }
+
 #zoom-select {
   height: 24px;
   background: var(--bg-dark-primary);

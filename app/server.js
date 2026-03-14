@@ -14,6 +14,26 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.text({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Compiler config ---
+const COMPILER_FLAGS = {
+  pdflatex: '-pdf',
+  latex: '-pdfdvi',
+  xelatex: '-xelatex',
+  lualatex: '-lualatex',
+};
+const VALID_COMPILERS = Object.keys(COMPILER_FLAGS);
+
+// --- Per-project settings ---
+function getProjectSettings(projectDir) {
+  const settingsPath = path.join(projectDir, '.overleaf.json');
+  try { return JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); }
+  catch { return {}; }
+}
+
+function saveProjectSettings(projectDir, settings) {
+  fs.writeFileSync(path.join(projectDir, '.overleaf.json'), JSON.stringify(settings, null, 2));
+}
+
 // --- Helpers ---
 
 function safePath(projectName, filePath) {
@@ -21,6 +41,22 @@ function safePath(projectName, filePath) {
   const resolved = path.resolve(projectDir, filePath || '');
   if (!resolved.startsWith(projectDir)) return null;
   return resolved;
+}
+
+// LaTeX intermediate/output file extensions to hide from the file tree
+const HIDDEN_EXTS = new Set([
+  '.aux', '.log', '.fls', '.fdb_latexmk', '.bbl', '.blg',
+  '.synctex.gz', '.out', '.toc', '.lof', '.lot', '.nav',
+  '.snm', '.vrb', '.xdv', '.bcf', '.run.xml', '.pdf',
+]);
+
+function isHiddenFile(name) {
+  if (name === '.overleaf.json') return true;
+  // Check compound extensions first (e.g. .synctex.gz, .run.xml)
+  for (const ext of HIDDEN_EXTS) {
+    if (name.endsWith(ext)) return true;
+  }
+  return false;
 }
 
 function walkDir(dir, base) {
@@ -31,6 +67,7 @@ function walkDir(dir, base) {
     if (ent.isDirectory()) {
       entries.push({ name: ent.name, path: rel, type: 'dir', children: walkDir(path.join(dir, ent.name), rel) });
     } else {
+      if (isHiddenFile(ent.name)) continue;
       entries.push({ name: ent.name, path: rel, type: 'file' });
     }
   }
@@ -120,6 +157,27 @@ app.put('/api/projects/:name/files/*filepath', (req, res) => {
   }
 });
 
+// Project settings
+app.get('/api/projects/:name/settings', (req, res) => {
+  const projectDir = safePath(req.params.name, '');
+  if (!projectDir || !fs.existsSync(projectDir)) return res.status(404).json({ error: 'Project not found' });
+  res.json(getProjectSettings(projectDir));
+});
+
+app.put('/api/projects/:name/settings', (req, res) => {
+  const projectDir = safePath(req.params.name, '');
+  if (!projectDir || !fs.existsSync(projectDir)) return res.status(404).json({ error: 'Project not found' });
+  const settings = getProjectSettings(projectDir);
+  if (req.body.compiler) {
+    if (!VALID_COMPILERS.includes(req.body.compiler)) {
+      return res.status(400).json({ error: `Invalid compiler. Must be one of: ${VALID_COMPILERS.join(', ')}` });
+    }
+    settings.compiler = req.body.compiler;
+  }
+  saveProjectSettings(projectDir, settings);
+  res.json(settings);
+});
+
 // Compile
 app.post('/api/projects/:name/compile', (req, res) => {
   const projectName = req.params.name;
@@ -134,8 +192,12 @@ app.post('/api/projects/:name/compile', (req, res) => {
   // Find main .tex file
   const mainFile = req.body.mainFile || 'main.tex';
 
+  const settings = getProjectSettings(projectDir);
+  const compiler = settings.compiler || 'pdflatex';
+  const compilerFlag = COMPILER_FLAGS[compiler] || '-pdf';
+
   const safeMainFile = mainFile.replace(/[^a-zA-Z0-9._-]/g, '');
-  exec(`latexmk -pdf -synctex=1 -f -interaction=nonstopmode "${safeMainFile}"`, {
+  exec(`latexmk ${compilerFlag} -synctex=1 -f -interaction=nonstopmode "${safeMainFile}"`, {
     cwd: projectDir,
     timeout: 120000,
   }, (err, stdout, stderr) => {

@@ -25,6 +25,7 @@
   const pdfPageInput = $('#pdf-page-input');
   const pdfTotalPagesEl = $('#pdf-total-pages');
   const zoomSelect = $('#zoom-select');
+  const compilerSelect = $('#compiler-select');
   const sidePanel = $('#side-panel');
 
   // Configure PDF.js worker
@@ -110,6 +111,7 @@
       localStorage.setItem('lastProject', currentProject);
       projectSelect.value = currentProject;
       await loadFileTree();
+      await loadProjectSettings();
       compile();
     }
   }
@@ -124,7 +126,28 @@
     pdfDoc = null;
     pdfPages = [];
     await loadFileTree();
+    await loadProjectSettings();
     compile();
+  });
+
+  // --- Project Settings ---
+  async function loadProjectSettings() {
+    if (!currentProject) return;
+    try {
+      const settings = await fetch(`/api/projects/${currentProject}/settings`).then(r => r.json());
+      compilerSelect.value = settings.compiler || 'pdflatex';
+    } catch {
+      compilerSelect.value = 'pdflatex';
+    }
+  }
+
+  compilerSelect.addEventListener('change', async () => {
+    if (!currentProject) return;
+    await fetch(`/api/projects/${currentProject}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ compiler: compilerSelect.value }),
+    });
   });
 
   // --- File Tree ---
@@ -339,6 +362,17 @@
   async function loadPdf() {
     const url = `/api/projects/${currentProject}/pdf?t=${Date.now()}`;
     try {
+      // Save scroll position before clearing
+      let savedPage = null;
+      let savedOffset = 0;
+      if (pdfPages.length > 0) {
+        savedPage = getCurrentVisiblePage();
+        const pageEntry = pdfPages.find(p => p.pageNum === savedPage);
+        if (pageEntry) {
+          savedOffset = pdfContainer.scrollTop - pageEntry.wrapper.offsetTop;
+        }
+      }
+
       pdfDoc = await pdfjsLib.getDocument(url).promise;
       pdfTotalPages = pdfDoc.numPages;
       pdfContainer.innerHTML = '';
@@ -369,6 +403,15 @@
 
         pdfContainer.appendChild(wrapper);
         pdfPages.push({ canvas, wrapper, page, pageNum: i });
+      }
+
+      // Restore scroll position after rendering
+      if (savedPage !== null) {
+        const targetPage = Math.min(savedPage, pdfTotalPages);
+        const targetEntry = pdfPages.find(p => p.pageNum === targetPage);
+        if (targetEntry) {
+          pdfContainer.scrollTop = targetEntry.wrapper.offsetTop + savedOffset;
+        }
       }
 
       updatePageInfo();
