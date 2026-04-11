@@ -12,6 +12,7 @@ const compileLocks = new Map();
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.text({ limit: '5mb' }));
+app.use(express.raw({ type: 'application/octet-stream', limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Compiler config ---
@@ -47,27 +48,33 @@ function safePath(projectName, filePath) {
 const HIDDEN_EXTS = new Set([
   '.aux', '.log', '.fls', '.fdb_latexmk', '.bbl', '.blg',
   '.synctex.gz', '.out', '.toc', '.lof', '.lot', '.nav',
-  '.snm', '.vrb', '.xdv', '.bcf', '.run.xml', '.pdf',
+  '.snm', '.vrb', '.xdv', '.bcf', '.run.xml',
 ]);
+// Only hidden at the project root (latexmk output dir) — assets in subfolders stay visible.
+const ROOT_HIDDEN_EXTS = new Set(['.pdf']);
 
-function isHiddenFile(name) {
+function isHiddenFile(name, isRoot) {
   if (name === '.overleaf.json') return true;
-  // Check compound extensions first (e.g. .synctex.gz, .run.xml)
   for (const ext of HIDDEN_EXTS) {
     if (name.endsWith(ext)) return true;
+  }
+  if (isRoot) {
+    for (const ext of ROOT_HIDDEN_EXTS) {
+      if (name.endsWith(ext)) return true;
+    }
   }
   return false;
 }
 
-function walkDir(dir, base) {
+function walkDir(dir, base, isRoot = true) {
   const entries = [];
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     if (ent.name === '.git') continue;
     const rel = path.join(base, ent.name);
     if (ent.isDirectory()) {
-      entries.push({ name: ent.name, path: rel, type: 'dir', children: walkDir(path.join(dir, ent.name), rel) });
+      entries.push({ name: ent.name, path: rel, type: 'dir', children: walkDir(path.join(dir, ent.name), rel, false) });
     } else {
-      if (isHiddenFile(ent.name)) continue;
+      if (isHiddenFile(ent.name, isRoot)) continue;
       entries.push({ name: ent.name, path: rel, type: 'file' });
     }
   }
@@ -149,7 +156,11 @@ app.put('/api/projects/:name/files/*filepath', (req, res) => {
       }
     }
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+    const body = req.body;
+    const data = Buffer.isBuffer(body)
+      ? body
+      : (typeof body === 'string' ? body : JSON.stringify(body));
+    fs.writeFileSync(filePath, data);
     const newStat = fs.statSync(filePath);
     res.json({ ok: true, mtime: newStat.mtimeMs });
   } catch (err) {

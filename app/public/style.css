@@ -317,6 +317,12 @@ main {
   font-weight: 700;
 }
 
+.tree-dir.active > .tree-label {
+  background: var(--green-70);
+  color: var(--green-10);
+  font-weight: 700;
+}
+
 .tree-toggle {
   display: inline-flex;
   width: 18px;
@@ -373,6 +379,18 @@ main {
   font-family: 'DM Mono', monospace;
   font-size: 14px;
   line-height: 1.5;
+}
+
+#pdf-file-preview {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  background: var(--bg-dark-primary);
+}
+#pdf-file-preview-frame {
+  flex: 1;
+  border: 0;
+  background: #525659;
 }
 
 /* SyncTeX editor highlight */

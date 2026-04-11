@@ -53,6 +53,8 @@
         <div class="file-tree-toolbar-actions">
           <button id="btn-new-file" title="New File"><span class="material-symbols">note_add</span></button>
           <button id="btn-new-folder" title="New Folder"><span class="material-symbols">create_new_folder</span></button>
+          <button id="btn-upload-file" title="Upload File"><span class="material-symbols">upload_file</span></button>
+          <input id="file-upload-input" type="file" multiple style="display:none">
         </div>
       </div>
       <div id="file-tree"></div>
@@ -66,6 +68,9 @@
         <button class="dismiss-btn" onclick="document.querySelector('#external-change-banner').style.display='none'">Dismiss</button>
       </div>
       <textarea id="editor"></textarea>
+      <div id="pdf-file-preview" style="display:none">
+        <iframe id="pdf-file-preview-frame" title="PDF preview"></iframe>
+      </div>
     </div>
     <div id="splitter-right" class="splitter"></div>
     <div id="preview-pane">

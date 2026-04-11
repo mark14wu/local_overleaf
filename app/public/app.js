@@ -1,6 +1,7 @@
 (() => {
   let currentProject = null;
   let currentFile = null;
+  let currentDir = null;
   let editor = null;
   let saveTimer = null;
   let currentFileMtime = null;
@@ -45,6 +46,7 @@
 
   editor.on('change', () => {
     if (!currentFile) return;
+    if (isPdfFile(currentFile)) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveCurrentFile, 1500);
     statusEl.textContent = 'Modified';
@@ -155,6 +157,30 @@
     const files = await fetch(`/api/projects/${currentProject}/files`).then(r => r.json());
     fileTree.innerHTML = '';
     renderTree(files, fileTree, 0);
+    if (currentDir) restoreDirSelection(currentDir);
+  }
+
+  function selectDir(dirPath) {
+    currentDir = dirPath;
+    document.querySelectorAll('.tree-dir.active').forEach(e => e.classList.remove('active'));
+    const el = fileTree.querySelector(`[data-dir-path="${CSS.escape(dirPath)}"]`);
+    if (el) el.classList.add('active');
+  }
+
+  function restoreDirSelection(dirPath) {
+    const parts = dirPath.split('/');
+    let accum = '';
+    for (const part of parts) {
+      accum = accum ? `${accum}/${part}` : part;
+      const el = fileTree.querySelector(`[data-dir-path="${CSS.escape(accum)}"]`);
+      if (el) {
+        el.classList.add('open');
+        const toggle = el.querySelector(':scope > .tree-label .tree-toggle .material-symbols');
+        if (toggle) toggle.textContent = 'keyboard_arrow_down';
+      }
+    }
+    const target = fileTree.querySelector(`[data-dir-path="${CSS.escape(dirPath)}"]`);
+    if (target) target.classList.add('active');
   }
 
   function renderTree(items, parent, depth) {
@@ -162,13 +188,16 @@
       const div = document.createElement('div');
       if (item.type === 'dir') {
         div.className = 'tree-item tree-dir';
+        div.dataset.dirPath = item.path;
         const label = document.createElement('div');
         label.className = 'tree-label';
         label.innerHTML = `<span class="tree-toggle"><span class="material-symbols">keyboard_arrow_right</span></span><span class="tree-icon"><span class="material-symbols">folder</span></span><span class="tree-name">${item.name}</span>`;
-        label.addEventListener('click', () => {
+        label.addEventListener('click', (e) => {
+          e.stopPropagation();
           div.classList.toggle('open');
           const toggle = label.querySelector('.tree-toggle .material-symbols');
           toggle.textContent = div.classList.contains('open') ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
+          selectDir(item.path);
         });
         div.appendChild(label);
         const children = document.createElement('div');
@@ -190,19 +219,62 @@
   }
 
   // --- File Operations ---
+  function isPdfFile(filePath) {
+    return !!filePath && filePath.toLowerCase().endsWith('.pdf');
+  }
+
+  function showPdfFilePreview(filePath) {
+    clearTimeout(saveTimer);
+    const wrapper = editor.getWrapperElement();
+    wrapper.style.display = 'none';
+    const preview = $('#pdf-file-preview');
+    const frame = $('#pdf-file-preview-frame');
+    const url = `/api/projects/${encodeURIComponent(currentProject)}/files/${filePath.split('/').map(encodeURIComponent).join('/')}?t=${Date.now()}`;
+    frame.src = url;
+    preview.style.display = 'flex';
+  }
+
+  function hidePdfFilePreview() {
+    const preview = $('#pdf-file-preview');
+    const frame = $('#pdf-file-preview-frame');
+    if (preview.style.display !== 'none') {
+      frame.src = 'about:blank';
+      preview.style.display = 'none';
+    }
+    const wrapper = editor.getWrapperElement();
+    if (wrapper.style.display === 'none') {
+      wrapper.style.display = '';
+      editor.refresh();
+    }
+  }
+
   async function openFile(filePath, el) {
-    if (currentFile && editor.getValue()) {
+    if (currentFile && !isPdfFile(currentFile) && editor.getValue()) {
       await saveCurrentFile();
     }
 
     document.querySelectorAll('.tree-file.active').forEach(e => e.classList.remove('active'));
+    document.querySelectorAll('.tree-dir.active').forEach(e => e.classList.remove('active'));
     if (el) el.classList.add('active');
 
     currentFile = filePath;
+    currentDir = null;
 
     const ext = filePath.split('.').pop().toLowerCase();
+
+    if (ext === 'pdf') {
+      currentFileMtime = null;
+      dismissExternalChangeBanner();
+      showPdfFilePreview(filePath);
+      statusEl.textContent = 'PDF (read-only)';
+      return;
+    }
+
+    hidePdfFilePreview();
+
     const textExts = ['tex', 'bib', 'sty', 'cls', 'txt', 'md', 'cfg', 'def', 'ltx', 'dtx', 'ins', 'bst', 'log', 'aux', 'toc', 'csv', 'json', 'xml', 'yaml', 'yml', 'toml', 'ini', 'sh', 'py', 'r', 'lua', 'gitignore', 'latexmkrc', 'bbl'];
     if (!textExts.includes(ext) && ext !== '') {
+      currentFileMtime = null;
       editor.setValue(`[Binary file: ${filePath}]`);
       statusEl.textContent = 'Binary file';
       return;
@@ -247,6 +319,7 @@
 
   async function saveCurrentFile() {
     if (!currentFile || !currentProject) return 'skipped';
+    if (isPdfFile(currentFile)) return 'skipped';
     clearTimeout(saveTimer);
     isSaving = true;
     try {
@@ -767,6 +840,44 @@
       body: '',
     });
     loadFileTree();
+  });
+
+  // --- Upload File ---
+  $('#btn-upload-file').addEventListener('click', () => {
+    if (!currentProject) return;
+    $('#file-upload-input').click();
+  });
+
+  $('#file-upload-input').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!currentProject || files.length === 0) return;
+
+    const folder = currentDir
+      ? currentDir
+      : (currentFile ? currentFile.split('/').slice(0, -1).join('/') : '');
+    const btn = $('#btn-upload-file');
+    btn.disabled = true;
+    try {
+      for (const file of files) {
+        const dest = folder ? `${folder}/${file.name}` : file.name;
+        const head = await fetch(`/api/projects/${currentProject}/files-mtime/${dest}`);
+        if (head.ok && !confirm(`"${dest}" already exists. Overwrite?`)) continue;
+        const buf = await file.arrayBuffer();
+        const res = await fetch(`/api/projects/${currentProject}/files/${dest}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: buf,
+        });
+        if (!res.ok) {
+          alert(`Upload failed for ${file.name}: ${res.status}`);
+          break;
+        }
+      }
+      await loadFileTree();
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   // --- Splitters ---
