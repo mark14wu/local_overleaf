@@ -393,6 +393,34 @@ main {
   background: #525659;
 }
 
+#file-tree-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 4px 0;
+  background: var(--bg-dark-tertiary, #1f2023);
+  border: 1px solid var(--border-subtle, #3a3b3e);
+  border-radius: var(--radius-base, 4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  color: var(--text-primary, #e5e5e5);
+  user-select: none;
+}
+#file-tree-context-menu .ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+#file-tree-context-menu .ctx-item:hover {
+  background: var(--green-70, #2e7d32);
+  color: var(--green-10, #e8f5e9);
+}
+#file-tree-context-menu .ctx-item .material-symbols {
+  font-size: 18px;
+}
+
 /* SyncTeX editor highlight */
 .synctex-editor-highlight {
   background: rgba(255, 230, 0, 0.3) !important;

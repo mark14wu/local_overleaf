@@ -46,7 +46,7 @@
 
   editor.on('change', () => {
     if (!currentFile) return;
-    if (isPdfFile(currentFile)) return;
+    if (!isTextFile(currentFile)) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveCurrentFile, 1500);
     statusEl.textContent = 'Modified';
@@ -54,6 +54,9 @@
 
   // --- Key Bindings ---
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hideFileTreeContextMenu();
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       saveCurrentFile();
@@ -67,6 +70,22 @@
       e.preventDefault();
       forwardSync();
     }
+  });
+
+  // Dismiss file-tree context menu on outside click / scroll / resize.
+  document.addEventListener('mousedown', (e) => {
+    const menu = $('#file-tree-context-menu');
+    if (menu && menu.style.display !== 'none' && !menu.contains(e.target)) {
+      hideFileTreeContextMenu();
+    }
+  });
+  window.addEventListener('resize', hideFileTreeContextMenu);
+  document.addEventListener('scroll', hideFileTreeContextMenu, true);
+  document.addEventListener('contextmenu', (e) => {
+    // Suppress the browser menu for any other right-click that bubbles out of the tree,
+    // but only when our menu initiated the event chain. Fall-through otherwise.
+    const menu = $('#file-tree-context-menu');
+    if (menu && menu.style.display !== 'none') hideFileTreeContextMenu();
   });
 
   // --- Rail Toggle Logic ---
@@ -167,6 +186,33 @@
     if (el) el.classList.add('active');
   }
 
+  function showFileTreeContextMenu(x, y, dirPath) {
+    const menu = $('#file-tree-context-menu');
+    menu.innerHTML = '';
+    const upload = document.createElement('div');
+    upload.className = 'ctx-item';
+    upload.innerHTML = '<span class="material-symbols">upload_file</span><span>Upload file</span>';
+    upload.addEventListener('click', () => {
+      hideFileTreeContextMenu();
+      $('#file-upload-input').click();
+    });
+    menu.appendChild(upload);
+
+    menu.style.display = 'block';
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+    const rect = menu.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width - 4;
+    const maxY = window.innerHeight - rect.height - 4;
+    menu.style.left = Math.min(x, maxX) + 'px';
+    menu.style.top = Math.min(y, maxY) + 'px';
+  }
+
+  function hideFileTreeContextMenu() {
+    const menu = $('#file-tree-context-menu');
+    if (menu) menu.style.display = 'none';
+  }
+
   function restoreDirSelection(dirPath) {
     const parts = dirPath.split('/');
     let accum = '';
@@ -199,6 +245,12 @@
           toggle.textContent = div.classList.contains('open') ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
           selectDir(item.path);
         });
+        label.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectDir(item.path);
+          showFileTreeContextMenu(e.pageX, e.pageY, item.path);
+        });
         div.appendChild(label);
         const children = document.createElement('div');
         children.className = 'tree-children';
@@ -219,6 +271,25 @@
   }
 
   // --- File Operations ---
+  const TEXT_EXTS = new Set([
+    'tex', 'bib', 'sty', 'cls', 'txt', 'md', 'cfg', 'def', 'ltx', 'dtx',
+    'ins', 'bst', 'log', 'aux', 'toc', 'csv', 'json', 'xml', 'yaml', 'yml',
+    'toml', 'ini', 'sh', 'py', 'r', 'lua', 'gitignore', 'latexmkrc', 'bbl',
+  ]);
+
+  function extOf(filePath) {
+    if (!filePath) return '';
+    const dot = filePath.lastIndexOf('.');
+    if (dot < 0 || dot < filePath.lastIndexOf('/')) return '';
+    return filePath.slice(dot + 1).toLowerCase();
+  }
+
+  function isTextFile(filePath) {
+    if (!filePath) return false;
+    const ext = extOf(filePath);
+    return ext === '' || TEXT_EXTS.has(ext);
+  }
+
   function isPdfFile(filePath) {
     return !!filePath && filePath.toLowerCase().endsWith('.pdf');
   }
@@ -249,9 +320,10 @@
   }
 
   async function openFile(filePath, el) {
-    if (currentFile && !isPdfFile(currentFile) && editor.getValue()) {
+    if (currentFile && isTextFile(currentFile) && editor.getValue()) {
       await saveCurrentFile();
     }
+    clearTimeout(saveTimer);
 
     document.querySelectorAll('.tree-file.active').forEach(e => e.classList.remove('active'));
     document.querySelectorAll('.tree-dir.active').forEach(e => e.classList.remove('active'));
@@ -260,7 +332,7 @@
     currentFile = filePath;
     currentDir = null;
 
-    const ext = filePath.split('.').pop().toLowerCase();
+    const ext = extOf(filePath);
 
     if (ext === 'pdf') {
       currentFileMtime = null;
@@ -272,11 +344,10 @@
 
     hidePdfFilePreview();
 
-    const textExts = ['tex', 'bib', 'sty', 'cls', 'txt', 'md', 'cfg', 'def', 'ltx', 'dtx', 'ins', 'bst', 'log', 'aux', 'toc', 'csv', 'json', 'xml', 'yaml', 'yml', 'toml', 'ini', 'sh', 'py', 'r', 'lua', 'gitignore', 'latexmkrc', 'bbl'];
-    if (!textExts.includes(ext) && ext !== '') {
+    if (!isTextFile(filePath)) {
       currentFileMtime = null;
       editor.setValue(`[Binary file: ${filePath}]`);
-      statusEl.textContent = 'Binary file';
+      statusEl.textContent = 'Binary file (read-only)';
       return;
     }
 
@@ -319,7 +390,7 @@
 
   async function saveCurrentFile() {
     if (!currentFile || !currentProject) return 'skipped';
-    if (isPdfFile(currentFile)) return 'skipped';
+    if (!isTextFile(currentFile)) return 'skipped';
     clearTimeout(saveTimer);
     isSaving = true;
     try {
