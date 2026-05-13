@@ -42,6 +42,10 @@
     indentWithTabs: false,
     matchBrackets: true,
     autoCloseBrackets: true,
+    extraKeys: {
+      'Cmd-/': 'toggleComment',
+      'Ctrl-/': 'toggleComment',
+    },
   });
 
   editor.on('change', () => {
